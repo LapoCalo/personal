@@ -1,5 +1,5 @@
 # personal
-Here I put all the projects done during university and during my free-time.
+Here I put all the projects done during university and during my free-time. The work is in progress...
 
 # Satellite AOCS/GNC — Study Projects
 
