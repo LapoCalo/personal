@@ -1,8 +1,13 @@
-# personal
+# Personal
 Here I put all the projects done during university and during my free-time. The work is in progress...
 
+## Estimation and Filtering
+## Launchers Guidance and Control
+## Launchers 
+## Orbital Mechanics
+## Satellite Project
 
-## AOCS personal
+## AOCS self-study
 
 ### 1. Single-axis PID — Attitude Control Basics
 
