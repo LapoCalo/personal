@@ -3,7 +3,7 @@ Here I put all the projects done during university and during my free-time. The 
 
 ## Estimation and Filtering
 ## Launchers Guidance and Control
-## Launchers 
+## Launchers Architecture
 ## Orbital Mechanics
 ## Satellite Project
 
