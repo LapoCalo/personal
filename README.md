@@ -7,7 +7,9 @@ Here I put all the projects done during university and during my free-time. The 
 ## Orbital Mechanics
 ## Satellite Project
 
-## AOCS self-study
+## Lunar Landing (self-study)
+
+## AOCS (self-study)
 
 ### 1. Single-axis PID — Attitude Control Basics
 
