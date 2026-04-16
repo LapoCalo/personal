@@ -1,0 +1,9 @@
+# Lander vehicle parameters
+
+dry_mass_kg: 500.0
+propellant_mass_kg: 700.0     # total initial mass = dry + propellant = 1200 kg
+
+engine:
+  specific_impulse_s: 311     # Isp [s]
+  thrust_max_N: 15000.0       # Maximum throttleable thrust [N]
+  thrust_min_N: 0.0           # Engine can be fully shut off

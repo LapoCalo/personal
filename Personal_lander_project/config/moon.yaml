@@ -1,0 +1,7 @@
+# Moon physical constants
+# Source: NASA lunar fact sheet (public domain)
+
+radius_m: 1737400.0          # Mean lunar radius [m]
+grav_param_m3s2: 4.9028e12   # Gravitational parameter GM [m^3/s^2]
+spin_rate_rads: 2.6617e-6    # Sidereal rotation rate [rad/s]
+surface_gravity: 1.62        # Surface gravitational acceleration [m/s^2]
