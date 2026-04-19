@@ -1,11 +1,11 @@
 # Personal
 Here I put all the projects done during university and during my free-time. The work is in progress...
 
-## Estimation and Filtering
-## Launchers Guidance and Control
-## Launchers Architecture
-## Orbital Mechanics
-## Satellite Project
+## Estimation and Filtering (MSc subject)
+## Launchers Guidance and Control (MSc subject)
+## Launchers Architecture (MSc subject)
+## Orbital Mechanics (MSc subject)
+## Satellite Architecture Project (MSc subject)
 
 ## Lunar Landing (self-study)
 
