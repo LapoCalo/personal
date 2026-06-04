@@ -72,7 +72,8 @@ def _launch_globe(orbit_xyz, arc_xyz, terminal_xyz, moon_params, texture_path):
                      texture_path=texture_path)
 
 
-def _launch_descent(traj_dict, moon_radius_m, telemetry_arrays, speedup):
+def _launch_descent(traj_dict, moon_radius_m, telemetry_arrays, speedup,
+                    save_gif=False, gif_path="descent.gif", gif_fps=25):
     """Runs inside a child process."""
     import vtk
     vtk.vtkObject.GlobalWarningDisplayOff()
@@ -88,7 +89,8 @@ def _launch_descent(traj_dict, moon_radius_m, telemetry_arrays, speedup):
             return telemetry_arrays
 
     run_descent_viewer(traj, moon_radius_m=moon_radius_m,
-                       controller_log=_Log(), speedup=speedup)
+                       controller_log=_Log(), speedup=speedup,
+                       save_gif=save_gif, gif_path=gif_path, gif_fps=gif_fps)
 
 
 def _run_in_process(target, args):
@@ -144,8 +146,6 @@ def main():
     v_east_orb  = float(np.dot(tan_vec * v_circ, e_east))
     v_north_orb = float(np.dot(tan_vec * v_circ, e_north))
 
-    # Simulation starts at the orbit exit with full orbital velocity.
-    # The controller fires and the physics determine the landing site.
     terminal_ic = {
         'altitude_m':    100_000.0,
         'latitude_rad':  lat_exit,
@@ -188,7 +188,6 @@ def main():
 
     # -----------------------------------------------------------------------
     # 4. Convert full trajectory to Cartesian for the globe viewer
-    #    No separate arc needed — the simulation IS the descent path
     # -----------------------------------------------------------------------
     r_t   = traj['r'].values
     lat_t = traj['latitude'].values
@@ -201,8 +200,6 @@ def main():
 
     # -----------------------------------------------------------------------
     # 5. Launch 3D viewers sequentially
-    #    1) Globe first — user explores the full mission overview, then closes it
-    #    2) Close-up descent viewer — shows last 300 m, closing it exits everything
     # -----------------------------------------------------------------------
     texture_path = os.path.join(ROOT, 'assets', 'moon_texture.jpg')
     telemetry_arrays = controller.log.as_arrays()
@@ -220,13 +217,16 @@ def main():
         args=(orbit_xyz, np.array([]), descent_xyz, moon_params, texture_path),
     )
     globe_proc.start()
-    globe_proc.join()   # wait for user to close the globe
+    globe_proc.join()
 
     # --- Close-up descent viewer ---
-    print("Launching terminal descent viewer  (close window to exit)...")
+    # Set save_gif=True to record the animation; the GIF is written to gif_path.
+    gif_out = os.path.join(ROOT, "descent.gif")
+    print(f"Launching terminal descent viewer  (GIF will be saved to {gif_out})...")
     descent_proc = mp.Process(
         target=_launch_descent,
-        args=(traj_close.to_dict(orient='list'), R_moon, telemetry_arrays, 5.0),
+        args=(traj_close.to_dict(orient='list'), R_moon, telemetry_arrays, 5.0,
+              True, gif_out, 25),   # save_gif=True, gif_path, gif_fps
     )
     descent_proc.start()
     descent_proc.join()

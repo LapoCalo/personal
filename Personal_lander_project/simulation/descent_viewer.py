@@ -146,7 +146,8 @@ def _to_cartesian(r, lat, lon):
 # ---------------------------------------------------------------------------
 
 def run_descent_viewer(trajectory_df, moon_radius_m,
-                       controller_log=None, speedup=5.0):
+                       controller_log=None, speedup=5.0,
+                       save_gif=False, gif_path="descent.gif", gif_fps=25):
     """
     Animate the terminal descent phase.
 
@@ -158,6 +159,9 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
     moon_radius_m : float
     controller_log : TelemetryLog or None
     speedup : float   Playback speed multiplier.
+    save_gif : bool   Whether to save the animation as a GIF.
+    gif_path : str    Output path for the GIF file.
+    gif_fps  : int    Frames per second for the output GIF.
     """
     # ------------------------------------------------------------------
     # Unpack trajectory
@@ -203,7 +207,10 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
     # ------------------------------------------------------------------
     # Build scene
     # ------------------------------------------------------------------
-    plotter = pv.Plotter(title="Terminal Descent – Close-up View")
+    plotter = pv.Plotter(
+        title="Terminal Descent – Close-up View",
+        off_screen=save_gif,   # render off-screen when saving GIF
+    )
     plotter.set_background([0.05, 0.05, 0.12])   # dark navy blue
 
     # 10 km × 10 km surface — warm dark basalt tone
@@ -260,18 +267,30 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
 
     plotter.add_legend(loc="upper right", size=(0.2, 0.18), bcolor=[0.0, 0.0, 0.0, 0.5])
 
-    # Camera: surface-normal–based so it is never underground
-    ref_up  = np.array([0.0, 0.0, 1.0]) if abs(normal[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
-    e_side  = np.cross(normal, ref_up);  e_side /= np.linalg.norm(e_side)
-    cam_pos = tuple(land_pos + normal * 200 + e_side * 500)
-    foc_pt  = tuple(land_pos + normal * 20)
+    # Camera: zoom out to show the entire trajectory.
+    # Compute a bounding sphere around all trajectory points and place
+    # the camera far enough back to fit everything in view.
+    traj_centre = path_xyz.mean(axis=0)
+    traj_span = np.max(np.linalg.norm(path_xyz - traj_centre, axis=1))
+    cam_distance = traj_span * 3.5  # generous pull-back
+    ref_up = np.array([0.0, 0.0, 1.0]) if abs(normal[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    e_side = np.cross(normal, ref_up);
+    e_side /= np.linalg.norm(e_side)
+    cam_pos = tuple(traj_centre + normal * cam_distance * 0.34 + e_side * cam_distance * 0.94)
+    foc_pt = tuple(traj_centre)
     plotter.camera_position = [cam_pos, foc_pt, tuple(normal)]
-    plotter.camera.clipping_range = (1, 10_000)
+    plotter.camera.clipping_range = (1, cam_distance * 10)
+
+    # ------------------------------------------------------------------
+    # GIF frame buffer
+    # ------------------------------------------------------------------
+    gif_frames = []
 
     # ------------------------------------------------------------------
     # Animation loop
     # ------------------------------------------------------------------
-    plotter.show(auto_close=False, interactive_update=True)
+    if not save_gif:
+        plotter.show(auto_close=False, interactive_update=True)
 
     real_dt = dt_sim / speedup
     G_MOON  = 1.62
@@ -280,21 +299,18 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
         for i in range(len(path_xyz)):
             frame_start = time.time()
 
-            if plotter.render_window.GetNeverRendered():
+            if not save_gif and plotter.render_window.GetNeverRendered():
                 break
 
             pos = path_xyz[i]
 
-            # Reposition + reorient lander: orient along thrust vector
-            # The thrust is stored in spherical frame [T_r, T_e, T_n].
-            # Convert to Cartesian using local basis vectors at current position.
+            # Reposition + reorient lander along thrust vector
             if thrust_components is not None:
                 f_Tr, f_Te, f_Tn = thrust_components
                 T_r_f = float(f_Tr(t[i]))
                 T_e_f = float(f_Te(t[i]))
                 T_n_f = float(f_Tn(t[i]))
 
-                # Local basis vectors at this lat/lon
                 _lat, _lon = lat[i], lon[i]
                 e_r = np.array([
                     np.cos(_lat) * np.cos(_lon),
@@ -308,10 +324,9 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
                      np.cos(_lat),
                 ])
 
-                # Thrust in Cartesian world frame
                 thrust_vec = T_r_f * e_r + T_e_f * e_e + T_n_f * e_n
             else:
-                thrust_vec = normal  # default to radial if no thrust data
+                thrust_vec = normal
 
             lander_actor.user_matrix = _lander_transform(pos, thrust_vec)
 
@@ -326,7 +341,6 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
             if thrust_data is not None and m[i] > 0:
                 tw_str = f"{thrust_data[i] / (m[i] * G_MOON):.2f}"
 
-            # Compute horizontal velocity
             v_horiz = float(np.sqrt(u[i]**2 + v[i]**2))
 
             stats = (
@@ -339,15 +353,37 @@ def run_descent_viewer(trajectory_df, moon_radius_m,
             )
             telemetry_actor.set_text(0, stats)
 
-            plotter.update()
+            plotter.render()
 
-            elapsed = time.time() - frame_start
-            wait    = real_dt - elapsed
-            if wait > 0:
-                time.sleep(wait)
+            # Capture frame for GIF
+            if save_gif:
+                img = plotter.screenshot(return_img=True)
+                from PIL import Image
+                gif_frames.append(Image.fromarray(img))
+            else:
+                plotter.update()
+                elapsed = time.time() - frame_start
+                wait    = real_dt - elapsed
+                if wait > 0:
+                    time.sleep(wait)
 
         print("Landing complete.")
-        plotter.show()
+
+        # Save GIF
+        if save_gif and gif_frames:
+            duration_ms = int(1000 / gif_fps)
+            print(f"Saving GIF ({len(gif_frames)} frames at {gif_fps} fps) → {gif_path} ...")
+            gif_frames[0].save(
+                gif_path,
+                save_all=True,
+                append_images=gif_frames[1:],
+                duration=duration_ms,
+                loop=0,
+                optimize=False,
+            )
+            print(f"GIF saved → {gif_path}")
+        elif not save_gif:
+            plotter.show()
 
     except Exception as exc:
         print(f"Viewer stopped: {exc}")
